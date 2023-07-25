@@ -11,21 +11,15 @@ import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 public class Server {
 	
-	private static final List<String> validPaths = List.of("/index.html",
+	public static final List<String> validPaths = List.of("/index.html",
 		"/spring.svg", "/spring.png", "/resources.html", "/styles.css", "/app.js",
 		"/links.html", "/forms.html", "/classic.html", "/events.html", "/events.js");
-	private static final ExecutorService threadPool = Executors.newFixedThreadPool(64);
 	
-	public static void main(String[] args) {
-		start();
-	}
-	
-	public static void start() {
-		try (final var serverSocket = new ServerSocket(9999)) {
+	public static void start(ExecutorService threadPool, int port) {
+		try (final var serverSocket = new ServerSocket(port)) {
 			while (true) {
 				final var socket = serverSocket.accept();
 				threadPool.submit(() -> handleConnection(socket));
@@ -35,7 +29,7 @@ public class Server {
 		}
 	}
 	
-	private static void handleConnection(Socket socket) {
+	public static void handleConnection(Socket socket) {
 		try (
 			final var in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 			final var out = new BufferedOutputStream(socket.getOutputStream());

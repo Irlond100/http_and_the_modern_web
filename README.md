@@ -60,12 +60,12 @@ public class Main {
       // код инициализации сервера (из вашего предыдущего ДЗ)
 
       // добавление хендлеров (обработчиков)    
-      server.addHandler("GET", "/messages", new Handler() {
+      server.addHandler("GET", "/messages", new handler() {
         public void handle(Request request, BufferedOutputStream responseStream) {
           // TODO: handlers code
         }
       });
-      server.addHandler("POST", "/messages", new Handler() {
+      server.addHandler("POST", "/messages", new handler() {
         public void handle(Request request, BufferedOutputStream responseStream) {
           // TODO: handlers code
         }
@@ -78,7 +78,7 @@ public class Main {
 
 В итоге на запрос типа GET на путь "/messages" будет вызван первый обработчик, а на запрос типа POST и путь "/messages" будет вызван второй.
 
-Как вы видите, `Handler` — функциональный интерфейс всего с одним методом. Он может быть заменён на lambda.
+Как вы видите, `handler` — функциональный интерфейс всего с одним методом. Он может быть заменён на lambda.
 
 `Request` — это класс, который проектируете вы сами. Для нас важно, чтобы он содержал:
 
