@@ -1,33 +1,36 @@
 package handler;
 
-import java.io.BufferedOutputStream;
 import java.io.IOException;
 
 public class Main {
 	
-	public static final int threadPool = 64;
-	public static final int port = 9999;
+	private static final int PORT = 9999;
+	private static final int THREAD_POOL = 64;
 	
-	public static void main(String[] args) throws IOException {
+	public static void main(String[] args) {
 		
-		final HTTPServer server = HTTPServer.getInstance(port, threadPool);
+		HTTPServer server = new HTTPServer(PORT, THREAD_POOL);
 		
-		server.addHandler("GET", "/messages", new Handler() {
-			public void handle(Request request, BufferedOutputStream responseStream) throws IOException {
-				String hello = "hi";
-				responseStream.write(("HTTP/1.1 200 ok" + "/r/n" +
-					"Content-Type: " + "text/plain" + "/r/n" +
-					"Content-Length: " + hello.length() + "/r/n" +
-					"Connection: close/r/n" +
-					"/r/n").getBytes());
+		server.addHandler("GET", "/messages", (request, responseStream) -> {
+			responseStream.write((
+				"""
+					HTTP/1.1 200 OK\r
+					Content-Length: 0\r
+					Connection: close\r
+					\r
+					"""
+			).getBytes());
+			responseStream.flush();
+		});
+		server.addHandler("POST", "/messages", (request, responseStream) -> {
+			try {
+				server.customResponse(responseStream, 401, "Not found");
+			} catch (IOException e) {
+				e.printStackTrace();
 			}
 		});
-		server.addHandler("POST", "/messages", new Handler() {
-			public void handle(Request request, BufferedOutputStream responseStream) {
-				// TODO: handlers code
-			}
-		});
 		
+		server.run();
 	}
 	
 }

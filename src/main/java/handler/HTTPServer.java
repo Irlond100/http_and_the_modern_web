@@ -1,61 +1,89 @@
 package handler;
 
+import java.io.BufferedOutputStream;
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.net.ServerSocket;
+import java.net.Socket;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public class HTTPServer implements Runnable {
+public class HTTPServer {
 	
-	private static HTTPServer INSTANCE = null;
-	private final ExecutorService threadPool;
-	private final ServerSocket serverSocket;
-	private final ConcurrentHashMap<String, ConcurrentHashMap<String, Handler>> handlers = new ConcurrentHashMap<>();
+	private static int PORT = 0;
+	private final ConcurrentHashMap<String, Map<String, Handler>> handlerHashMap;
+	private ExecutorService executorService;
 	
-	public HTTPServer(int port, int pool) throws IOException {
-		serverSocket = new ServerSocket(port);
-		threadPool = Executors.newFixedThreadPool(pool);
+	public HTTPServer(int port, int threadPool) {
+		this.executorService = Executors.newFixedThreadPool(threadPool);
+		handlerHashMap = new ConcurrentHashMap<>();
+		PORT = port;
 	}
 	
-	public static synchronized HTTPServer getInstance(int port, int threadPool) throws IOException {
-		if (INSTANCE == null) {
-			synchronized (HTTPServer.class) {
-				if (INSTANCE == null) {
-					INSTANCE = new HTTPServer(port, threadPool);
-				}
-			}
-		}
-		return INSTANCE;
-	}
-	
-	public ConcurrentHashMap<String, ConcurrentHashMap<String, Handler>> getHandlers() {
-		return handlers;
-	}
-	
-	public void addHandler(String method, String path, Handler handler) {
-		var methodMap = handlers.get(method);
-		
-		if (methodMap == null) {
-			methodMap = new ConcurrentHashMap<>();
-			handlers.put(method, methodMap);
-		}
-		
-		if (!methodMap.contains(path)) {
-			methodMap.put(path, handler);
-		}
-	}
-	
-	@Override
 	public void run() {
-		try {
+		try (final ServerSocket serverSocket = new ServerSocket(PORT)) {
 			while (true) {
-				threadPool.execute(new ConnectionHandler(serverSocket.accept(), this));
-				
+				final Socket socket = serverSocket.accept();
+				executorService.submit(() -> prepare(socket));
 			}
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+	}
+	
+	public void prepare(Socket socket) {
+		try (
+			final BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+			final BufferedOutputStream out = new BufferedOutputStream(socket.getOutputStream())
+		)
+		{
+			Request request = Request.parse(in);
+			
+			if (!handlerHashMap.containsKey(request.getMethod())) {
+				customResponse(out, 404, "Not found");
+				return;
+			}
+			
+			Map<String, Handler> handlerMap = handlerHashMap.get(request.getMethod());
+			String pathRequest = preparePath(request.getPath());
+			
+			if (handlerMap.containsKey(pathRequest)) {
+				Handler handler = handlerMap.get(pathRequest);
+				handler.handle(request, out);
+			}
+			
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+	
+	public void customResponse(BufferedOutputStream out, int code, String status) throws IOException {
+		out.write((
+			"HTTP/1.1 " + code + " " + status + "\r\n" +
+				"Content-Length: 0\r\n" +
+				"Connection: close\r\n" +
+				"\r\n"
+		).getBytes());
+		out.flush();
+	}
+	
+	public void addHandler(String method, String path, Handler handler) {
+		if (!handlerHashMap.containsKey(method)) {
+			handlerHashMap.put(method, new HashMap<>());
+		}
+		handlerHashMap.get(method).put(path, handler);
+	}
+	
+	public String preparePath(String url) {
+		int i = url.indexOf("?");
+		if (i == -1) {
+			return url;
+		}
+		return url.substring(0, i);
 	}
 	
 }
